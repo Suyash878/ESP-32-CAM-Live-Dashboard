@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 Camera Feed</title>
+  <style>
+    body { 
+      font-family: Arial; 
+      max-width: 1200px; 
+      margin: 20px auto; 
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+    }
+    .camera-card {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .camera-card h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    .camera-card img {
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .timestamp {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .status.connected { background: #4CAF50; color: white; }
+    .status.disconnected { background: #f44336; color: white; }
+  </style>
+</head>
+<body>
+  <h1>ESP32 Camera Monitor</h1>
+  <div id="status" class="status disconnected">Disconnected</div>
+  <div id="cameras" class="camera-grid"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('http://localhost:3000');
+    const camerasDiv = document.getElementById('cameras');
+    const statusDiv = document.getElementById('status');
+
+    socket.on('connect', () => {
+      statusDiv.textContent = 'Connected';
+      statusDiv.className = 'status connected';
+    });
+
+    socket.on('disconnect', () => {
+      statusDiv.textContent = 'Disconnected';
+      statusDiv.className = 'status disconnected';
+    });
+
+    socket.on('init', (data) => {
+      updateCameras(data.latestPerCamera);
+    });
+
+    socket.on('detection', (event) => {
+      updateCamera(event);
+    });
+
+    function updateCameras(cameras) {
+      for (const [cameraId, event] of Object.entries(cameras)) {
+        updateCamera(event);
+      }
+    }
+
+    function updateCamera(event) {
+      let card = document.getElementById(event.cameraId);
+      if (!card) {
+        card = document.createElement('div');
+        card.id = event.cameraId;
+        card.className = 'camera-card';
+        camerasDiv.appendChild(card);
+      }
+
+      const time = new Date(event.timestamp).toLocaleString();
+      card.innerHTML = `
+        <h3>${event.cameraId}</h3>
+        <img src="${event.imageBase64}" alt="Camera feed">
+        <div class="timestamp">Last update: ${time}</div>
+      `;
+    }
+  </script>
+</body>
+</html>
